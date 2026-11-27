@@ -70,5 +70,5 @@ sudo docker build -f fortress_rootfs.Dockerfile -t hardened-python:v1 .
 ## 👥 Authors & License
 
 * **Lead Researcher (Human):** 葵 ([@aoitokoneko](https://github.com/aoitokoneko)) — *Concept, Original Base Architecture, Empirical Verification & Orchestration*
-* **Co-Researcher (AI):** Gemini (Google) — *Theoretical Formalization, Kernel Subsystem Design & Co-Implementation*
+* **Co-Researcher (AI):** Gemini4 Carbon (Google) — *Theoretical Formalization, Kernel Subsystem Design & Co-Implementation*
 * **License:** Distributed under the [Apache License, Version 2.0](./LICENSE).
