@@ -1,10 +1,8 @@
 /**
- * ============================================================================
- * File: aegis_init.c (BistroHardened Runtime Security Launcher v4)
+ * ============================================================================                                                      * File: aegis_init.c (BistroHardened Runtime Security Launcher v4)
  * SPDX-License-Identifier: Apache-2.0
  * Build: gcc -O2 -Wall -Wextra aegis_init.c -o aegis-init
- * ============================================================================
- */
+ * ============================================================================                                                      */
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,8 +18,7 @@
 #include <sys/syscall.h>
 #include <sys/mman.h>
 #include <linux/landlock.h>
-#include <linux/filter.h>
-#include <linux/seccomp.h>
+#include <linux/filter.h>                                         #include <linux/seccomp.h>
 #include <linux/audit.h>
 
 #ifndef __X32_SYSCALL_BIT
@@ -51,6 +48,8 @@
 #define RATCHET_P2_FREEZE_NET    (1U << 5)
 #define RATCHET_P2_FREEZE_FORK   (1U << 6)
 #define RATCHET_LEARN_MODE       (1U << 7)
+#define RATCHET_P2_FREEZE_CODE   (1U << 8)
+#define PRIVSEP_SO_PATH          "/lib/libaegis_privsep.so"
 
 struct aegis_policy_cfg {
     int   extra_syscalls[MAX_EXTRA_SYSCALLS];
@@ -67,6 +66,7 @@ struct aegis_policy_cfg {
     bool  p2_freeze_open;
     bool  p2_freeze_net;
     bool  p2_freeze_fork;
+    bool p2_freeze_code;
 };
 
 static bool is_actively_ptraced(void) {
@@ -216,6 +216,8 @@ static void load_policy_and_apply_landlock(const char *policy_path,
             cfg->p2_freeze_net = (atoi(line + 18) != 0);
         } else if (strncmp(line, "PHASE2_FREEZE_FORK ", 19) == 0) {
             cfg->p2_freeze_fork = (atoi(line + 19) != 0);
+        } else if (strncmp(line, "PHASE2_FREEZE_CODE ", 19) == 0) {
+            cfg->p2_freeze_code = (atoi(line + 19) != 0);
         } else if (strncmp(line, "ENV ", 4) == 0) {
             add_safe_env(cfg, line + 4);
         }
@@ -238,12 +240,19 @@ static void load_policy_and_apply_landlock(const char *policy_path,
         if (cfg->p2_freeze_open) rmask |= RATCHET_P2_FREEZE_OPEN;
         if (cfg->p2_freeze_net)  rmask |= RATCHET_P2_FREEZE_NET;
         if (cfg->p2_freeze_fork) rmask |= RATCHET_P2_FREEZE_FORK;
+        if (cfg->p2_freeze_code) rmask |= RATCHET_P2_FREEZE_CODE;
         if (learn_trace)         rmask |= RATCHET_LEARN_MODE;
 
         if (rmask != 0) {
             static char preload_env[4096];
             static char ratchet_env[64];
-            snprintf(preload_env, sizeof(preload_env), "LD_PRELOAD=%s", ratchet_so);
+            if (access(PRIVSEP_SO_PATH, R_OK) == 0) {
+                add_landlock_path(ruleset_fd, PRIVSEP_SO_PATH, rx_rights);
+                add_extra_syscall(cfg, 447); /* __NR_memfd_secret */
+                snprintf(preload_env, sizeof(preload_env), "LD_PRELOAD=%s:%s", PRIVSEP_SO_PATH, ratchet_so);
+            } else {
+                snprintf(preload_env, sizeof(preload_env), "LD_PRELOAD=%s", ratchet_so);
+            }
             snprintf(ratchet_env, sizeof(ratchet_env), "AEGIS_RATCHET=0x%x", rmask);
             cfg->env_vars[cfg->env_count++] = preload_env;
             cfg->env_vars[cfg->env_count++] = ratchet_env;
