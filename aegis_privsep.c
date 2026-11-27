@@ -4,9 +4,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdarg.h>
-#include <string.h>                                               #include <unistd.h>
-#include <fcntl.h>                                                #include <errno.h>
-#include <dlfcn.h>                                                #include <signal.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <dlfcn.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -16,8 +19,10 @@
 #include <sys/syscall.h>
 #include <pthread.h>
 
-#ifndef __NR_memfd_secret                                         #if defined(__x86_64__)
-#define __NR_memfd_secret 447                                     #elif defined(__aarch64__)
+#ifndef __NR_memfd_secret
+#if defined(__x86_64__)
+#define __NR_memfd_secret 447
+#elif defined(__aarch64__)
 #define __NR_memfd_secret 279
 #else
 #define __NR_memfd_secret 447
