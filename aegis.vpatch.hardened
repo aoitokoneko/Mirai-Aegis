@@ -1,0 +1,35 @@
+# ============================================================================
+# File: aegis.vpatch.hardened
+# Desc: Web / PHP / WordPress / Python サーバー向け Hardened 仮想パッチプリセット
+# Usage: 必要な行のコメント (#) を外し、aegis.vpatch として配置後 SIGHUP を送信
+# ============================================================================
+
+# --- [A] 機密情報・バックアップファイル漏洩防止 (LFI / Path Traversal 対策) ---
+VPATCH_PATH_DENY   *.env
+VPATCH_PATH_DENY   *.pem
+VPATCH_PATH_DENY   *.key
+VPATCH_PATH_DENY   *.bak
+VPATCH_PATH_DENY   *.swp
+VPATCH_PATH_DENY   /etc/shadow
+# WordPress / PHP 設定バックアップ露出防止例:
+# VPATCH_PATH_DENY /var/www/html/wp-config.php.bak
+
+# --- [B] 脆弱な設定・テンプレートの無停止ホットスワップ (Live File Redirect) ---
+# 再起動できない稼働中サーバーの危険な設定ファイルを安全な修正版へ透過リダイレクト:
+# VPATCH_PATH_REDIR /srv/www/config.json /etc/patches/safe_config.json
+
+# --- [C] クラウドメタデータ & 内部ミドルウェア SSRF 防御 ---
+# AWS / GCP / Azure 等インスタンスメタデータ API (169.254.169.254) の完全遮断:
+VPATCH_NET_DENY    169.254.169.254:0
+# ローカル内部キャッシュ・DB への不正 SSRF 踏み台防止例 (Redis / Memcached):
+# VPATCH_NET_DENY  127.0.0.1:6379
+# VPATCH_NET_DENY  127.0.0.1:11211
+
+# --- [D] 端末インジェクション等の危険スカラー引数遮断 ---
+# ioctl(16) の第1引数 cmd == TIOCSTI (0x5412) による端末コマンド注入を遮断:
+VPATCH_ARG_DENY    16 1 0x5412
+
+# --- [E] ROP / インジェクション対策 (Call-Site 起源束縛) ---
+# openat(257) および connect(42) を正規 libc 経由のみに限定する場合 (パスは環境に合わせて調整):
+# VPATCH_ORIGIN_ONLY 257 /lib64/libc.so.6
+# VPATCH_ORIGIN_ONLY 42  /lib64/libc.so.6
