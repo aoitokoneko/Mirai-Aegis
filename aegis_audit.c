@@ -70,6 +70,8 @@ struct audit_ctx {
     bool     p2_freeze_open;
     bool     p2_freeze_net;
     bool     p2_freeze_fork;
+    bool p2_freeze_code;
+    bool has_privsep_so;
     bool     has_dangerous_syscall;
     int      dangerous_sc_nr;
 
@@ -348,6 +350,8 @@ static void parse_policy_file(struct audit_ctx *ctx, const char *policy_path) {
             ctx->p2_freeze_net = (atoi(line + 18) != 0);
         } else if (strncmp(line, "PHASE2_FREEZE_FORK ", 19) == 0) {
             ctx->p2_freeze_fork = (atoi(line + 19) != 0);
+        } else if (strncmp(line, "PHASE2_FREEZE_CODE ", 19) == 0) {
+            ctx->p2_freeze_code = (atoi(line + 19) != 0);
         } else if (strncmp(line, "SYSCALL ", 8) == 0) {
             int nr = atoi(line + 8);
             if (is_dangerous_extra_syscall(nr)) {
@@ -535,15 +539,25 @@ static void evaluate_posture(struct audit_ctx *ctx) {
                     NULL, 0);
     }
 
-    /* [6] 動的コードロード (dlopen / FREEZE_CODE) */
+    /* [6] 動的コードロード (dlopen / FREEZE_CODE / PHASE2_FREEZE_CODE) */
     if (ctx->has_ratchet_so && ctx->freeze_code) {
         add_finding(ctx, SEV_GUARDED, "Immutable Code Pages",
                     "PROT_EXEC mmap frozen at main() entry (FREEZE_CODE=1).",
                     NULL, 0);
+    } else if (ctx->has_ratchet_so && ctx->p2_on_listen && ctx->p2_freeze_code) {
+        add_finding(ctx, SEV_GUARDED, "Temporal Code Freeze",
+                    "Phase-1 import allowed; PROT_EXEC mmap permanently frozen at listen() (PHASE2_FREEZE_CODE=1).",
+                    NULL, 0);
     } else {
         add_finding(ctx, SEV_MED, "Runtime dlopen() Open",
                     "FREEZE_CODE=0 (runtime C-extension dlopen active; restricted to Landlock RX whitelist).",
-                    "Ensure RX list contains only verified .so files (verified disjoint from RW)", 5);
+                    "Add 'PHASE2_FREEZE_CODE 1' to aegis.policy to freeze dlopen() after listen()", 5);
+    }
+
+    if (ctx->has_privsep_so) {
+        add_finding(ctx, SEV_GUARDED, "Secret Memory Vault",
+                    "OpenBSD-style privsep & Phase-2 memfd_secret evaporation active (libaegis_privsep.so).",
+                    NULL, 0);
     }
 
     /* [7] 端末コマンド注入 (ioctl TIOCSTI) & 危険システムコール */
