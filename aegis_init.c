@@ -1,8 +1,10 @@
 /**
- * ============================================================================                                                      * File: aegis_init.c (BistroHardened Runtime Security Launcher v4)
+ * ============================================================================
+ * File: aegis_init.c (BistroHardened Runtime Security Launcher v4)
  * SPDX-License-Identifier: Apache-2.0
  * Build: gcc -O2 -Wall -Wextra aegis_init.c -o aegis-init
- * ============================================================================                                                      */
+ * ============================================================================
+ */
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +20,8 @@
 #include <sys/syscall.h>
 #include <sys/mman.h>
 #include <linux/landlock.h>
-#include <linux/filter.h>                                         #include <linux/seccomp.h>
+#include <linux/filter.h>
+#include <linux/seccomp.h>
 #include <linux/audit.h>
 
 #ifndef __X32_SYSCALL_BIT
@@ -66,7 +69,7 @@ struct aegis_policy_cfg {
     bool  p2_freeze_open;
     bool  p2_freeze_net;
     bool  p2_freeze_fork;
-    bool p2_freeze_code;
+    bool  p2_freeze_code;
 };
 
 static bool is_actively_ptraced(void) {
