@@ -8,7 +8,7 @@
 
 **BistroHardened & Aegis** は、OpenBSD のセキュリティ設計思想（`pledge` / `unveil` / `W^X`）に触発され、Linux コンテナおよびサーバーアプリケーションをサイバー攻撃から守るために開発された **3次元（空間・時間・境界）最小権限防衛基盤** です。
 
-本研究および実装は、**葵 (@aoitokoneko)** と **Gemini (Google)** による「人間と AI の共同研究」として完成し、より安全な世界のソフトウェア基盤のためにオープンソース（Apache License 2.0）で公開されています。
+本研究および実装は、**葵 (@aoitokoneko)** と **Gemini4 Carbon (Google)** による「人間と AI の共同研究」として完成し、より安全な世界のソフトウェア基盤のためにオープンソース（Apache License 2.0）で公開されています。
 
 👉 **[共同研究論文（全文）を読む: PAPER.md](./PAPER.md)**
 
