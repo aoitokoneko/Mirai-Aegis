@@ -12,7 +12,8 @@
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
-#include <dlfcn.h>                                                #include <errno.h>
+#include <dlfcn.h>
+#include <errno.h>
 #include <sys/syscall.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
@@ -29,14 +30,14 @@
 #define RATCHET_P1_FREEZE_EXECVE (1U << 1) /* execve/execveat 完全禁止 */
 #define RATCHET_P1_FREEZE_TLS    (1U << 2) /* arch_prctl 完全禁止 */
 
-/* Phase 2 Ratchet ビットマスク (listen() 完了時 = 定常ループ突入 時に発動) */
-#define RATCHET_P2_ON_LISTEN     (1U << 3) /* listen() 成功をトリ ガーとして Phase 2 へ遷移 */
+/* Phase 2 Ratchet ビットマスク (listen() 完了時 = 定常ループ突入時に発動) */
+#define RATCHET_P2_ON_LISTEN     (1U << 3) /* listen() 成功をトリガーとして Phase 2 へ遷移 */
 #define RATCHET_P2_FREEZE_OPEN   (1U << 4) /* Phase 2 で新規 open/openat/openat2 完全禁止 */
 #define RATCHET_P2_FREEZE_NET    (1U << 5) /* Phase 2 で新規 socket/connect/bind/listen 禁止 */
 #define RATCHET_P2_FREEZE_FORK   (1U << 6) /* Phase 2 で新規 clone/clone3/fork/vfork 禁止 */
 
-#define RATCHET_LEARN_MODE       (1U << 7)
-#define RATCHET_P2_FREEZE_CODE   (1U << 8) /* Phase 2 で新規 mmap(PROT_EXEC) / dlopen 禁止 */ /* 学習モード時は KILL ではなく TRACE 通知 */
+#define RATCHET_LEARN_MODE       (1U << 7) /* 学習モード時は KILL ではなく TRACE 通知 */
+#define RATCHET_P2_FREEZE_CODE   (1U << 8) /* Phase 2 で新規 mmap(PROT_EXEC) / dlopen 禁止 */
 
 /* Builder の学習エンジンへ通知する専用タグ */
 #define TRACE_TAG_PHASE1_WX_MMAP 10U
@@ -169,7 +170,7 @@ static void apply_phase2_seccomp_ratchet(unsigned int mask) {
 #endif
     }
 
-    /* 4. Phase 2 動的コードロード遅延封印 (Python/動的言語の初期 化後 dlopen 完全遮断) */
+    /* 4. Phase 2 動的コードロード遅延封印 (Python/動的言語の初期化後 dlopen 完全遮断) */
     if (learn || (mask & RATCHET_P2_FREEZE_CODE)) {
         uint32_t act = learn ? (SECCOMP_RET_TRACE | TRACE_TAG_PHASE2_WX_MMAP)
                              : SECCOMP_RET_KILL_PROCESS;
@@ -179,7 +180,7 @@ static void apply_phase2_seccomp_ratchet(unsigned int mask) {
         emit_insn(f, &n, (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, act));
     }
 
-    /* 学習モード時は getppid() を Phase 2 突入通知マーカーとして 利用 */
+    /* 学習モード時は getppid() を Phase 2 突入通知マーカーとして利用 */
     if (learn) {
         emit_action_nr(f, &n, __NR_getppid, SECCOMP_RET_TRACE | TRACE_TAG_PHASE2_MARKER);
     }
@@ -194,13 +195,13 @@ static void apply_phase2_seccomp_ratchet(unsigned int mask) {
         _exit(127);
     }
 
-    /* 学習エンジン(Builder)に「いま listen() が完了し Phase 2 に 入った！」と通知 */
+    /* 学習エンジン(Builder)に「いま listen() が完了し Phase 2 に入った！」と通知 */
     if (learn) {
         (void)syscall(__NR_getppid);
     }
 }
 
-/* トリガー関数インターセプト: listen() が成功した瞬間に Phase 2  ラチェットを発動 */
+/* トリガー関数インターセプト: listen() が成功した瞬間に Phase 2 ラチェットを発動 */
 int listen(int sockfd, int backlog) {
     long ret = syscall(__NR_listen, sockfd, backlog);
     if (ret < 0) {
