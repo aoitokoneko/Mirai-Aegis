@@ -1,12 +1,16 @@
 /**
- * ============================================================================                                                      * File: aegis_audit.c (Aegis 3D Security Posture & Gap Visualizer CLI)
+ * ============================================================================
+ * File: aegis_audit.c (Aegis 3D Security Posture & Gap Visualizer CLI)
  * SPDX-License-Identifier: Apache-2.0
- * Philosophy: Minimalist, Zero-Dependency UNIX Security Auditor in C                                                                * Build: gcc -O2 -Wall -Wextra aegis_audit.c -o aegis-audit
+ * Philosophy: Minimalist, Zero-Dependency UNIX Security Auditor in C
+ * Build: gcc -O2 -Wall -Wextra aegis_audit.c -o aegis-audit
  * Usage: ./aegis-audit <rootfs_dir> [--vpatch <file>] [--json] [--strict]
  * ============================================================================
- */                                                               #define _GNU_SOURCE
+ */
+#define _GNU_SOURCE
 #include <stdio.h>
-#include <stdlib.h>                                               #include <stdint.h>
+#include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
@@ -17,7 +21,8 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-                                                                  #define MAX_PATHS        2048
+
+#define MAX_PATHS        2048
 #define MAX_VPATCH_ITEMS 256
 #define MAX_SENSITIVE    64
 
@@ -70,8 +75,8 @@ struct audit_ctx {
     bool     p2_freeze_open;
     bool     p2_freeze_net;
     bool     p2_freeze_fork;
-    bool p2_freeze_code;
-    bool has_privsep_so;
+    bool     p2_freeze_code;
+    bool     has_privsep_so;
     bool     has_dangerous_syscall;
     int      dangerous_sc_nr;
 
@@ -155,13 +160,14 @@ static void add_finding(struct audit_ctx *ctx, enum sev_level sev,
 }
 
 /* ============================================================================
- * 1. 非実行 ELF64 .dynsym 静的スキャナ (危険関数のインポート有無 を検査)
+ * 1. 非実行 ELF64 .dynsym 静的スキャナ (危険関数のインポート有無を検査)
  * ============================================================================ */
 static void scan_elf_dynsym(struct audit_ctx *ctx, const char *full_path, const char *rel_path) {
-    /* libc 自体や Aegis 自身のランタイムは除外し、保護対象アプリ ・拡張モジュールのみを検査 */
+    /* libc 自体や Aegis 自身のランタイムは除外し、保護対象アプリ・拡張モジュールのみを検査 */
     if (strstr(rel_path, "/libc.so") || strstr(rel_path, "/ld-linux") ||
         strstr(rel_path, "aegis-init") || strstr(rel_path, "aegis-vpatch") ||
-        strstr(rel_path, "libaegis_ratchet.so")) {
+        strstr(rel_path, "aegis-privsep") || strstr(rel_path, "libaegis_ratchet.so") ||
+        strstr(rel_path, "libaegis_privsep.so")) {
         return;
     }
 
@@ -289,6 +295,7 @@ static void walk_rootfs(struct audit_ctx *ctx, const char *base_root, const char
             if (st.st_mode & (S_ISUID | S_ISGID)) ctx->has_suid_file = true;
             if (strcmp(child_rel, "/bin/aegis-init") == 0) ctx->has_aegis_init = true;
             if (strcmp(child_rel, "/lib/libaegis_ratchet.so") == 0) ctx->has_ratchet_so = true;
+            if (strcmp(child_rel, "/lib/libaegis_privsep.so") == 0) ctx->has_privsep_so = true;
             if (strcmp(child_rel, "/bin/aegis-vpatch") == 0) ctx->has_vpatch_bin = true;
 
             if (is_lotl_shell(child_rel)) {
@@ -606,10 +613,11 @@ static void print_human_report(const struct audit_ctx *ctx, const char *rootfs) 
            (ctx->has_ratchet_so && ctx->freeze_code)   ? "LOCKED" : "OPEN",
            (ctx->has_ratchet_so && ctx->p2_on_listen)  ? "ACTIVE" : "INACTIVE");
     if (ctx->has_ratchet_so && ctx->p2_on_listen) {
-        printf(" (OPEN=%s, NET=%s, FORK=%s)",
+        printf(" (OPEN=%s, NET=%s, FORK=%s, CODE=%s)",
                ctx->p2_freeze_open ? "LOCKED" : "OPEN",
                ctx->p2_freeze_net  ? "LOCKED" : "OPEN",
-               ctx->p2_freeze_fork ? "LOCKED" : "OPEN");
+               ctx->p2_freeze_fork ? "LOCKED" : "OPEN",
+               ctx->p2_freeze_code ? "LOCKED" : "OPEN");
     }
     printf("\n");
     printf("[Boundary] VPatcher  : %s | Loaded Rules: %zu %s%s%s\n",
@@ -710,7 +718,7 @@ int main(int argc, char *argv[]) {
         parse_policy_file(ctx, pol_path);
     }
 
-    /* 3. aegis.vpatch 読み込み (明示指定 -> RootFS内既定パスの順 で探索) */
+    /* 3. aegis.vpatch 読み込み (明示指定 -> RootFS内既定パス の順で探索) */
     if (vpatch_file) {
         parse_vpatch_file(ctx, vpatch_file);
     } else {
